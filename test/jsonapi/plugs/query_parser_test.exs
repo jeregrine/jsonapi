@@ -36,11 +36,10 @@ defmodule JSONAPI.QueryParserTest do
   end
 
   setup do
+    previous_env = System.get_env()
     Application.put_env(:jsonapi, :field_transformation, :underscore)
 
-    on_exit(fn ->
-      Application.delete_env(:jsonapi, :field_transformation)
-    end)
+    on_exit(fn -> System.put_env(previous_env) end)
 
     {:ok, []}
   end
@@ -65,6 +64,20 @@ defmodule JSONAPI.QueryParserTest do
     config = struct(Config, opts: [filter: ~w(name)], view: MyView)
     filter = parse_filter(config, %{"name" => "jason"}).filter
     assert filter[:name] == "jason"
+  end
+
+  test "parse_filter/2 handles multiple comma-separated filter values if configured" do
+    Application.put_env(:jsonapi, :filter_values_separator, ";")
+    config = struct(Config, opts: [filter: ~w(name)], view: MyView)
+    filter = parse_filter(config, %{"name" => "jason;api"}).filter
+    assert filter[:name] == ["jason", "api"]
+  end
+
+  test "parse_filter/2 does not does not parse comma-separated filter values if not configured" do
+    Application.delete_env(:jsonapi, :filter_values_separator)
+    config = struct(Config, opts: [filter: ~w(name)], view: MyView)
+    filter = parse_filter(config, %{"name" => "jason;api"}).filter
+    assert filter[:name] == "jason;api"
   end
 
   test "parse_filter/2 raises on invalid filters" do
